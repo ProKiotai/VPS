@@ -1,0 +1,41 @@
+name: Tailscale VPS
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Runs at 00:15, 06:15, 12:15, 18:15 IST (UTC times)
+  workflow_dispatch:
+
+concurrency:
+  group: tailscale-vps
+  cancel-in-progress: false
+
+jobs:
+  start-vps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355  # ~5h 55m
+
+    steps:
+      - name: Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Start Tailscale VPN
+        run: |
+          sudo tailscale up --authkey ${{ secrets.TAILSCALE_AUTH_KEY }} --hostname github-vps --ssh --accept-routes
+
+      - name: Update system and install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y python3-pip ffmpeg git
+
+      - name: Clone private repo and run bot
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/FraxxShadow/AdvanceAutoAnime.git
+        run: |
+          git clone $REPO_URL
+          cd AdvanceAutoAnime
+          pip3 install -r requirements.txt
+          python3 -m bot
+
+      - name: Keep runner alive for 6 hours
+        run: sleep 21500
